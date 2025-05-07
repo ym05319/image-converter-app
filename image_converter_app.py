@@ -33,13 +33,13 @@ size_limit_bytes = int(size_option.replace("MB", "")) * 1024 * 1024
 # 注意文統合の有無
 add_footer = st.checkbox("変換後の画像の下部に注意文画像（shitaobiA.png）を追加する")
 
-# 注意文画像のパス（デスクトップ想定）
-footer_image_path = "C:/Users/ym05319/Desktop/shitaobiA.png"
+# 注意文画像のパス（Web用：アプリフォルダ直下）
+footer_image_path = "shitaobiA.png"
 footer_img = None
 if os.path.exists(footer_image_path):
     footer_img = Image.open(footer_image_path).convert("RGB")
 elif add_footer:
-    st.warning("⚠ 注意文画像（shitaobiA.png）が見つかりません。デスクトップに配置してください。")
+    st.warning("⚠ 注意文画像（shitaobiA.png）が見つかりません。GitHubリポジトリに配置してください。")
 
 # ファイルアップロード
 uploaded_files = st.file_uploader(
