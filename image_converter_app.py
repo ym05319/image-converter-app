@@ -26,14 +26,12 @@ st.markdown("""
 st.title("📷 画像変換ツール")
 st.write("""
 画像を高画質JPEGに変換します。
-- 画像下部に注意文画像（shitaobiA.png）を統合するオプションあり。
-- オプションで2MB以下に圧縮することも可能です。
-- **合計アップロードサイズの目安：200MB以下を推奨**。
+- **合計アップロードサイズの目安：50MB以下**。
 """)
 
 # オプション設定
-limit_size = st.checkbox("📏 画像サイズを2MB以下に制限する")
-add_footer = st.checkbox("📎 注意文を下部に統合する")
+limit_size = st.checkbox(" 画像サイズを2MB以下に制限する")
+add_footer = st.checkbox(" 注意文を下部に統合する")
 
 # 注意文画像の読み込み
 footer_path = "shitaobiA.png"
