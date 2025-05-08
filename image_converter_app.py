@@ -32,8 +32,8 @@ st.write("""
 """)
 
 # オプション設定
-limit_size = st.checkbox("📏 画像サイズを2MB以下に制限する（画質は可能な限り維持）")
-add_footer = st.checkbox("📎 注意文画像（shitaobiA.png）を下部に統合する")
+limit_size = st.checkbox("📏 画像サイズを2MB以下に制限する")
+add_footer = st.checkbox("📎 注意文を下部に統合する")
 
 # 注意文画像の読み込み
 footer_path = "shitaobiA.png"
