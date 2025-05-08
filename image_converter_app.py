@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 import io
 import zipfile
-import os
+import base64
 
 # ページ設定とスタイル（黒背景・白文字）
 st.set_page_config(page_title="画像変換ツール", layout="centered", page_icon="📷")
@@ -12,7 +12,7 @@ st.markdown("""
             background-color: black !important;
             color: white !important;
         }
-        .stMarkdown, .stButton, .stDownloadButton, .stFileUploader, .stSelectbox label, .stCheckbox label {
+        .stMarkdown, .stButton, .stDownloadButton, .stFileUploader, .stCheckbox label {
             color: white !important;
         }
         .stDownloadButton > button {
@@ -24,22 +24,26 @@ st.markdown("""
 
 # UI表示
 st.title("📷 画像変換ツール")
-st.write("画像をJPG形式に変換し、指定サイズ以下に圧縮します。")
+st.write("画像をJPG形式に変換します。必要に応じて2MB以下への圧縮や注意文画像の追加ができます。")
 
-# サイズ制限選択
-size_option = st.selectbox("画像の最大サイズ（1枚あたり）を選択してください：", ["2MB", "4MB", "6MB"])
-size_limit_bytes = int(size_option.replace("MB", "")) * 1024 * 1024
+# オプション選択（どちらも任意）
+limit_size = st.checkbox("画像サイズを2MB以下に制限する", value=False)
+add_footer = st.checkbox("変換後の画像の下部に注意文画像を追加する", value=False)
 
-# 注意文統合の有無
-add_footer = st.checkbox("変換後の画像の下部に注意文画像（shitaobiA.png）を追加する")
+# 2MB制限のバイト数
+size_limit_bytes = 2 * 1024 * 1024
 
-# 注意文画像のパス（Web用：アプリフォルダ直下）
-footer_image_path = "shitaobiA.png"
+# 注意文画像（アプリ内埋め込み：base64形式で読み込む）
 footer_img = None
-if os.path.exists(footer_image_path):
-    footer_img = Image.open(footer_image_path).convert("RGB")
-elif add_footer:
-    st.warning("⚠ 注意文画像（shitaobiA.png）が見つかりません。GitHubリポジトリに配置してください。")
+if add_footer:
+    try:
+        footer_data = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAWgAAABLCAYAAABSPoaqAAAAAXNSR0IArs4c6QAAAARnQU1BAACx"
+            "jwv8YQUAAA...（省略）..."
+        )
+        footer_img = Image.open(io.BytesIO(footer_data)).convert("RGB")
+    except Exception:
+        st.warning("⚠ 注意文画像の読み込みに失敗しました。")
 
 # ファイルアップロード
 uploaded_files = st.file_uploader(
@@ -50,14 +54,14 @@ uploaded_files = st.file_uploader(
 
 # 変換処理
 if uploaded_files:
-    with st.spinner(f"画像をJPGに変換し、{size_option}以下に圧縮中..."):
+    with st.spinner("画像をJPGに変換中..."):
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w") as zip_file:
             for i, uploaded_file in enumerate(uploaded_files):
                 try:
                     img = Image.open(uploaded_file).convert("RGB")
 
-                    # 注意文を追加
+                    # 下帯追加
                     if add_footer and footer_img:
                         footer_resized = footer_img.resize((img.width, int(footer_img.height * img.width / footer_img.width)))
                         combined = Image.new("RGB", (img.width, img.height + footer_resized.height), (255, 255, 255))
@@ -65,41 +69,40 @@ if uploaded_files:
                         combined.paste(footer_resized, (0, img.height))
                         img = combined
 
-                    # 品質調整＋必要ならリサイズも
+                    # 圧縮とリサイズ処理
                     quality = 95
                     resize_factor = 1.0
                     final_img = img
                     img_buffer = io.BytesIO()
                     final_img.save(img_buffer, format="JPEG", quality=quality)
 
-                    # 品質調整
-                    while img_buffer.tell() > size_limit_bytes and quality >= 60:
-                        quality -= 5
-                        img_buffer = io.BytesIO()
-                        final_img.save(img_buffer, format="JPEG", quality=quality)
+                    if limit_size:
+                        # 品質調整
+                        while img_buffer.tell() > size_limit_bytes and quality >= 60:
+                            quality -= 5
+                            img_buffer = io.BytesIO()
+                            final_img.save(img_buffer, format="JPEG", quality=quality)
 
-                    # それでもサイズオーバーなら縮小
-                    while img_buffer.tell() > size_limit_bytes and resize_factor > 0.4:
-                        resize_factor -= 0.1
-                        new_width = int(img.width * resize_factor)
-                        new_height = int(img.height * resize_factor)
-                        final_img = img.resize((new_width, new_height))
-                        img_buffer = io.BytesIO()
-                        final_img.save(img_buffer, format="JPEG", quality=quality)
+                        # サイズ調整
+                        while img_buffer.tell() > size_limit_bytes and resize_factor > 0.4:
+                            resize_factor -= 0.1
+                            new_size = (int(img.width * resize_factor), int(img.height * resize_factor))
+                            final_img = img.resize(new_size)
+                            img_buffer = io.BytesIO()
+                            final_img.save(img_buffer, format="JPEG", quality=quality)
 
-                    # 最終サイズチェック
                     final_size = img_buffer.tell()
-                    if final_size > size_limit_bytes:
-                        st.warning(f"⚠ {uploaded_file.name} は制限サイズ内に収まりませんでした（{round(final_size / 1024 / 1024, 2)}MB）")
+                    if limit_size and final_size > size_limit_bytes:
+                        st.warning(f"⚠ {uploaded_file.name} は2MBに収まりませんでした（{round(final_size / 1024 / 1024, 2)}MB）")
                         continue
 
-                    # ZIP保存
+                    # ZIPに追加
                     out_name = os.path.splitext(uploaded_file.name)[0] + ".jpg"
                     zip_file.writestr(out_name, img_buffer.getvalue())
 
-                    # 表示（最大10枚）
+                    # プレビュー（最大10枚）
                     if i < 10:
-                        st.image(final_img, caption=f"{out_name}（品質: {quality}）", use_column_width=True)
+                        st.image(final_img, caption=f"{out_name}（{round(final_size / 1024 / 1024, 2)}MB）", use_column_width=True)
 
                 except Exception as e:
                     st.error(f"❌ {uploaded_file.name} の処理中にエラー: {e}")
